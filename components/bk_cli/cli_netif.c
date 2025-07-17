@@ -230,9 +230,9 @@ void cli_ali_mqtt_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 
 	os_printf("start test mqtt...\n");
 	if (argc == 4) {
-		test_mqtt_start(argv[1], argv[2], argv[3], NULL);
+		//test_mqtt_start(argv[1], argv[2], argv[3], NULL);
 	} else if (argc == 5) {
-		test_mqtt_start(argv[1], argv[2], argv[3], argv[4]);
+		//test_mqtt_start(argv[1], argv[2], argv[3], argv[4]);
 	} else {
 		// mqttali 222.71.10.2 aclsemi ****** /aclsemi/bk7256/cmd/1234
 		CLI_LOGE("usage: mqttali [host name|ip] [username] [password] [topic]\n");
@@ -258,7 +258,7 @@ void cli_ali_mqtt_send_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, c
 	int ret = 0;
 	
 	if (argc == 3) {
-		ret = mqtt_cmd_msg_send(argv[1], argv[2]);
+		//ret = mqtt_cmd_msg_send(argv[1], argv[2]);
 	} else {
 		// mqttsend  /aclsemi/bk7256/cmd/1234  12345678999999999
 		CLI_LOGE("usage: mqttsend [topic] [msg]\n");

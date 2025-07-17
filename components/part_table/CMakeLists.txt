@@ -104,6 +104,8 @@ list(APPEND bk7258xx_supported_projects
 	"wifi/repeater"
 	"at"
 	"matter"
+	"beken_genie_P910W"
+	"beken_genie_P910W_8M"
 )
 
 

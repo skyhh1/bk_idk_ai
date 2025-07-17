@@ -7003,6 +7003,7 @@ void ble_mqtt_loop_event_handle(void *pcontext, void *pclient, iotx_mqtt_event_m
 void *ble_mqtt_open(const char *host_name, const char *username,
                     const char *password)
 {
+#if 0
     iotx_conn_info_pt pconn_info;
     iotx_mqtt_param_t mqtt_params;
 
@@ -7079,6 +7080,8 @@ error:
         ble_mqtt_loop_tx_buffer = NULL;
     }
 
+    return NULL;
+    #endif
     return NULL;
 }
 

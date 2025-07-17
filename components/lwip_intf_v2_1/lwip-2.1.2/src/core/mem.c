@@ -192,10 +192,10 @@ mem_trim(void *mem, mem_size_t size)
 #define mem_clib_free os_free
 #endif
 #ifndef mem_clib_malloc
-#define mem_clib_malloc os_sram_malloc
+#define mem_clib_malloc os_malloc
 #endif
 #ifndef mem_clib_calloc
-#define mem_clib_calloc os_sram_calloc
+#define mem_clib_calloc calloc
 #endif
 
 #if LWIP_STATS && MEM_STATS

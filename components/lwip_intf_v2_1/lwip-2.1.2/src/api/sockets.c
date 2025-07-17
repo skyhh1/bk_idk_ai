@@ -2110,7 +2110,7 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
             long msecs_long = ((timeout->tv_sec * 1000) + ((timeout->tv_usec + 500) / 1000));
             if (msecs_long <= 0) {
               /* Wait 1ms at least (0 means wait forever) */
-              msectimeout = 1;
+              msectimeout = 10;
             } else {
               msectimeout = (u32_t)msecs_long;
             }

@@ -60,7 +60,13 @@
 #endif
 
 #if CONFIG_SOC_BK7236XX
+//begin: add by wanglongzhen for backlight 20240427
+#if (defined CONFIG_NWY_LCD_BACKLIGHT_PWM_ID) && (CONFIG_NWY_LCD_BACKLIGHT_PWM_ID > 0)
+#define LCD_BACKLIGHT_PWM           CONFIG_NWY_LCD_BACKLIGHT_PWM_ID
+#else
 #define LCD_BACKLIGHT_PWM           PWM_ID_1
+#endif
+//end: add by wanglongzhen for backlight 20240427
 #ifdef CONFIG_LCD_BACKLIGHT_GPIO
 #define LCD_BACKLIGHT_GPIO          CONFIG_LCD_BACKLIGHT_GPIO
 #else

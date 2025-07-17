@@ -18,6 +18,10 @@ extern "C" {
 #define KEY_GPIO_13   GPIO_13
 #define KEY_GPIO_12   GPIO_12
 #define KEY_GPIO_8    GPIO_8
+#define KEY_GPIO_49   GPIO_49
+#define KEY_GPIO_14   GPIO_14
+#define KEY_GPIO_41   GPIO_41
+#define KEY_GPIO_23   GPIO_23
 
 #define LONG_RRESS_TIMR 3000  //long press wake up time
 
@@ -27,10 +31,13 @@ typedef enum {
     VOLUME_DOWN,
     SHUT_DOWN,
     POWER_ON,
+    TENCENT_TWECALL,
+    TENCENT_TWETALK,
     IR_MODE_SWITCH,	//image recognition mode switch
     CONFIG_NETWORK,
     BRIGHTNESS_ADD,
     AI_AGENT_CONFIG,
+    TENCENT_CALL_COMING_ACCEPT,
     FACTORY_RESET,
 } key_event_t;
 

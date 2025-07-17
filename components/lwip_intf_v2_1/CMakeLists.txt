@@ -10,6 +10,7 @@ list(APPEND incs
 	lwip-2.1.2/src/include/netif
 	lwip-2.1.2/src/include/lwip
 	lwip-2.1.2/src/include/lwip/priv
+	lwip-2.1.2/src/include/compat/posix
 	)
 
 	list(APPEND srcs

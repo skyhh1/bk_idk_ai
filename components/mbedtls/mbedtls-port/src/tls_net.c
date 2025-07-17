@@ -130,6 +130,13 @@ static int net_prepare( void )
     return( 0 );
 }
 
+//lin : 
+int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
+{
+    return ( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL, 0 ) | O_NONBLOCK ) );
+}
+
+
 /*
  * Initialize a context
  */

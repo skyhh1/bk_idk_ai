@@ -21,7 +21,7 @@ static beken_queue_t s_key_msgqueue = NULL;
 
 #define KEY_THREAD_PRIORITY (4)
 #define KEY_THREAD_NAME "key_thread"
-#define KEY_THREAD_STACK_SIZE (0x2<<10)
+#define KEY_THREAD_STACK_SIZE (0x2<<13)
 static beken_thread_t s_key_thread = NULL;
 
 static KeyConfig_t *key_configs = NULL;

@@ -32,7 +32,7 @@
 
 #define ADC_VOL_BUFFER_SIZE               (5 + 5)   /* The first 5 samples can be skipped */
 #define ADC_READ_SEMAPHORE_WAIT_TIME      1000      /* ms */
-#define BATTERY_STATE_MONITORING_PERIOD   60 * 1000  /* ms */
+#define BATTERY_STATE_MONITORING_PERIOD   30 * 1000  /* ms */
 
 
 /* On/Off toggle for configuration */
@@ -42,12 +42,15 @@
 #define HARDWARE_BATTERY_PRESENT          1
 
 /* Battery capacity threshold example (percentage) for simple determination */
-#define SHUTDOWN_CAPACITY_THRESHOLD       2
+#define SHUTDOWN_CAPACITY_THRESHOLD       1
 #define LOW_CAPACITY_THRESHOLD            20
 #define FULL_CAPACITY_THRESHOLD           95
 
-#define GPIO_CHARGE      GPIO_51  // GPIO for charging state
-#define GPIO_FULL        GPIO_26  // GPIO for fully charged state
+#define GPIO_CHARGE      GPIO_48//GPIO_51  // GPIO for charging state       0--vbus is in
+#define GPIO_FULL        GPIO_26//GPIO_26  // GPIO for fully charged state  0--charging
+
+#define NWY_CHARGE_ENABLE_GPIO  GPIO_54
+#define NWY_CHARGE_CURRENT_CRTL GPIO_40
 
 /**
  * @brief Battery lookup table structure
@@ -59,6 +62,12 @@ typedef struct
     uint16_t voltageMV;  /*!< Voltage points（mV） */
     uint8_t  percent;    /*!< Remaining battery percentage corresponding to the voltage point(0~100) */
 } BatteryLUT_t;
+
+typedef struct
+{
+    uint16_t voltageMV;  /*!< Voltage points（mV） */
+    int16  temperature;    /*!< Remaining battery percentage corresponding to the voltage point(0~100) */
+} Battery_Temperature_t;
 
 /*
  * Example: Define several sampling points between 3.00V (3000mV) and 4.10V (4100mV).
@@ -72,18 +81,38 @@ typedef struct
 
 static const BatteryLUT_t s_chargeLUT[] =
 {
-    {3000,   0},   /* 3.00V ->   0% */
-    {3400,  10},   /* 3.40V ->  10% */
-    {3450,  20},   /* 3.45V ->  20% */
-    {3500,  30},   /* 3.50V ->  30% */
-    {3550,  40},   /* 3.55V ->  40% */
-    {3590,  50},   /* 3.59V ->  50% */
-    {3650,  60},   /* 3.65V ->  60% */
-    {3750,  70},   /* 3.75V ->  70% */
-    {3880,  80},   /* 3.88V ->  80% */
-    {3980,  90},   /* 3.98V ->  90% */
-    {4100,  99},   /* 4.10V ->  99% */
+    {3280,   0},   /* 3.00V ->   0% */
+    {3372,  10},   /* 3.40V ->  10% */
+    {3464,  20},   /* 3.45V ->  20% */
+    {3556,  30},   /* 3.50V ->  30% */
+    {3648,  40},   /* 3.55V ->  40% */
+    {3740,  50},   /* 3.59V ->  50% */
+    {3832,  60},   /* 3.65V ->  60% */
+    {3924,  70},   /* 3.75V ->  70% */
+    {4016,  80},   /* 3.88V ->  80% */
+    {4108,  90},   /* 3.98V ->  90% */
+    {4200,  99},   /* 4.10V ->  99% */
 };
+
+static const Battery_Temperature_t vol_temp[] =
+{
+    {2492,  -20},   /* ADC=2207 -> -20°C (低温端) */
+    {2207,  -10},   /* ADC=2207 -> -10°C (可能存在平台区) */
+    {1864,    0},   /* ADC=1864 ->   0°C */
+    {1681,    5},   /* ADC=1681 ->   5°C */
+    {1498,   10},   /* ADC=1498 ->  10°C */
+    {1321,   15},   /* ADC=1321 ->  15°C */
+    {1154,   20},   /* ADC=1154 ->  20°C (室温附近) */
+    {1000,   25},   /* ADC=1000 ->  25°C (典型室温) */
+    { 861,   30},   /* ADC= 861 ->  30°C */
+    { 738,   35},   /* ADC= 738 ->  35°C */
+    { 630,   40},   /* ADC= 630 ->  40°C */
+    { 536,   45},   /* ADC= 536 ->  45°C */
+    { 456,   50},   /* ADC= 456 ->  50°C (高温端) */
+    { 330,   60},   /* ADC= 330 ->  60°C (超温) */
+    { 240,   70},   /* ADC= 240 ->  70°C (超温警告) */
+};
+
 
 #if CONFIG_BAT_MONITOR
 
@@ -101,10 +130,16 @@ static void      prvBatteryMonitorTaskMain( void );
 static bk_err_t  prvBatteryMonitorTaskInit( void );
 
 static battery_event_callback_t s_battery_event_callback = NULL;
+static bool nwy_charge_enable  = true;
 int battery_event_callback_register(battery_event_callback_t callback)
 {
 	s_battery_event_callback = callback;
 	return 0;
+}
+
+IotBatteryHandle_t nwy_get_battery_handle(void)
+{
+    return xGlobalHandle;
 }
 
 int32_t battery_get_voltage(uint16_t *pVoltage)
@@ -147,21 +182,46 @@ static inline IotBatteryStatus_t battery_get_status_from_gpio(void)
     int charge_state = bk_gpio_get_input(GPIO_CHARGE);
     int full_state   = bk_gpio_get_input(GPIO_FULL);
 
-    if (charge_state == 1)
+    BAT_MONITOR_PRT("charge_state = %d,full_state = %d.\r\n",charge_state,full_state);
+#if 0
+    if( charge_state == 1 )
     {
-        if (full_state == 1)
+        if(full_state == 1)
+        {
+            pxDesc->xBatteryInfo.xBatteryStatus = eBatteryCharging;
+            BAT_MONITOR_PRT("Device is charging...\r\n");
+        }
+        else
+        {
+            pxDesc->xBatteryInfo.xBatteryStatus = eBatteryChargeFull;
+            BAT_MONITOR_PRT("Battery is full.\r\n");
+        }
+    }
+    else
+    {
+        pxDesc->xBatteryInfo.xBatteryStatus = eBatteryDischarging;
+        BAT_MONITOR_PRT("Battery powered.\r\n");
+    }
+#else
+    if( charge_state == 0 && nwy_charge_enable == true)
+    {
+        if(full_state == 0)
         {
             return eBatteryCharging;
+            BAT_MONITOR_PRT("Device is charging...\r\n");
         }
         else
         {
             return eBatteryChargeFull;
+            BAT_MONITOR_PRT("Battery is full.\r\n");
         }
     }
     else
     {
         return eBatteryDischarging;
+        BAT_MONITOR_PRT("Battery powered.\r\n");
     }
+#endif
 }
 
 bool battery_if_is_charging(void)
@@ -368,13 +428,15 @@ int32_t iot_battery_voltage( IotBatteryHandle_t const pxBatteryHandle,
 
 	//CONVERT TO REAL VOL
 	#if 1
-    uint32_t temp = (uint32_t)(*pusVoltage) * 667;
-	uint16_t practic_voltage = (uint16_t)((temp / 1000) + 40);
+//    uint32_t temp = (uint32_t)(*pusVoltage) * 667;
+//	uint16_t practic_voltage = (uint16_t)((temp / 1000) + 40);
+    float practic_voltage = bk_adc_data_calculate(*pusVoltage, ADC_0);
+    practic_voltage = practic_voltage * 1000 - 40;
 	#else
 	float practic_voltage = (float)(s_raw_voltage_data[0] - saradc_val.low);
     practic_voltage = (practic_voltage / (float)(saradc_val.high - saradc_val.low)) + 1;
 	#endif
-    //BAT_MONITOR_PRT("pusVoltage = %d, practic_voltage = %d.\r\n",*pusVoltage, practic_voltage);
+    //BAT_MONITOR_PRT("pusVoltage = %d, practic_voltage = %d.\r\n",*pusVoltage, (uint16_t)practic_voltage);
 
     *pusVoltage = practic_voltage;
 
@@ -540,6 +602,111 @@ static uint16_t prvCalculateVoltage( void )
     return s_raw_voltage_data[0];
 }
 
+bk_err_t nwy_adc_get_voltage(uint16_t * vol_mv, adc_chan_t adc_chan)
+{
+    uint16_t value[ADC_VOL_BUFFER_SIZE] = {0};
+    float cali_value = 0;
+    int sum = 0, count = 0;
+    BK_LOG_ON_ERR(bk_adc_acquire());
+    sys_drv_set_ana_pwd_gadc_buf(1);
+    BK_LOG_ON_ERR(bk_adc_init(adc_chan));
+    adc_config_t config = {0};
+
+    config.chan = adc_chan;
+    config.adc_mode = 3;
+    config.src_clk = 1;
+    config.clk = 0x30e035;
+    config.saturate_mode = 4;
+    config.steady_ctrl= 7;
+    config.adc_filter = 0;
+    if(config.adc_mode == ADC_CONTINUOUS_MODE) {
+        config.sample_rate = 0;
+    }
+
+    BK_LOG_ON_ERR(bk_adc_set_config(&config));
+    BK_LOG_ON_ERR(bk_adc_enable_bypass_clalibration());
+    BK_LOG_ON_ERR(bk_adc_start());
+    BK_LOG_ON_ERR(bk_adc_read_raw(value, ADC_VOL_BUFFER_SIZE, ADC_READ_SEMAPHORE_WAIT_TIME));
+    bk_adc_stop();
+    sys_drv_set_ana_pwd_gadc_buf(0);
+    bk_adc_deinit(adc_chan);
+
+    for( uint32_t i = 5; i < ADC_VOL_BUFFER_SIZE; i++ )
+    {
+        if( ( value[i] != 0 ) &&
+            ( value[i] != 2048 ) )
+        {
+            sum += value[i];
+            count++;
+        }
+    }
+
+    if( count == 0 )
+        value[0] = 0;
+    else
+        value[0] = (uint16_t)( sum / count );
+
+    cali_value = bk_adc_data_calculate(value[0], adc_chan);
+    rtos_delay_milliseconds(50);
+    bk_adc_release();
+    *vol_mv = (uint16_t)(cali_value * 1000);
+    BK_LOGE("adc", "the voltage is %d\n", *vol_mv);
+    return BK_OK;
+}
+
+static bk_err_t nwy_adc_to_temperature(int16 * temperature)
+{
+    uint16_t value;
+    const int LUT_SIZE = sizeof(vol_temp) / sizeof(vol_temp[0]);
+    nwy_adc_get_voltage(&value, ADC_15);
+    value = value - 15;
+
+    /* If it is below the minimum value, directly return the minimum temperature in the table*/
+    if(value >= vol_temp[0].voltageMV)
+    {
+        *temperature = vol_temp[0].temperature;
+        BAT_MONITOR_WPRT("minimum temperature is %d\r\n", *temperature);
+        return BK_OK;
+    }
+
+    /* If the value exceeds the maximum value, return the maximum temperature */
+    if(value <= vol_temp[LUT_SIZE - 1].voltageMV)
+    {
+        *temperature = vol_temp[LUT_SIZE - 1].temperature;
+        BAT_MONITOR_WPRT("maximum temperature is %d\r\n", *temperature);
+        return BK_OK;
+    }
+
+    /* Perform linear interpolation within the interval */
+    for(int i = 0; i < LUT_SIZE - 1; i++)
+    {
+        uint16_t v1 = vol_temp[i].voltageMV;
+        uint16_t v2 = vol_temp[i+1].voltageMV;
+
+        if(value <= v1 && value >= v2)
+        {
+            uint8_t p1 = vol_temp[i].temperature;
+            uint8_t p2 = vol_temp[i+1].temperature;
+
+            uint16_t dist  = (v1 - v2);
+            uint16_t delta = (v1 - value);
+
+            /* ratio: 0.0 ~ 1.0 */
+            float ratio = (float)delta / (float)dist;
+            float pf    = p1 + ratio * (p2 - p1);
+
+            *temperature = (uint8_t)(pf + 0.5f);
+            BAT_MONITOR_WPRT("temperature is %d\r\n", *temperature);
+            return BK_OK;
+        }
+    }
+
+    /* According to theory, it wouldn't be here for safety. */
+    *temperature = vol_temp[LUT_SIZE - 1].temperature;
+    BAT_MONITOR_WPRT("error temperature is %d\r\n", *temperature);
+    return BK_FAIL;
+}
+
 /*
  * Simultaneous sampling and calculation of voltage
  */
@@ -611,8 +778,8 @@ static void prvCheckChargeStatus( IotBatteryHandle_t xHandle )
     int charge_state = bk_gpio_get_input( GPIO_CHARGE );
     int full_state   = bk_gpio_get_input( GPIO_FULL );
 
-    //printf("charge_state = %d,full_state = %d.\r\n",charge_state,full_state);
-
+    BAT_MONITOR_PRT("charge_state = %d,full_state = %d.\r\n",charge_state,full_state);
+#if 0
     if( charge_state == 1 )
     {
         if(full_state == 1)
@@ -631,7 +798,26 @@ static void prvCheckChargeStatus( IotBatteryHandle_t xHandle )
         pxDesc->xBatteryInfo.xBatteryStatus = eBatteryDischarging;
         BAT_MONITOR_PRT("Battery powered.\r\n");
     }
-
+#else
+	if( charge_state == 0 && nwy_charge_enable == true)
+    {
+        if(full_state == 0)
+        {
+            pxDesc->xBatteryInfo.xBatteryStatus = eBatteryCharging;
+            BAT_MONITOR_PRT("Device is charging...\r\n");
+        }
+        else
+        {
+            pxDesc->xBatteryInfo.xBatteryStatus = eBatteryChargeFull;
+            BAT_MONITOR_PRT("Battery is full.\r\n");
+        }
+    }
+    else
+    {
+        pxDesc->xBatteryInfo.xBatteryStatus = eBatteryDischarging;
+        BAT_MONITOR_PRT("Battery powered.\r\n");
+    }
+#endif
 }
 
 int32_t iot_battery_close(IotBatteryHandle_t pxBatteryHandle)
@@ -659,8 +845,12 @@ int32_t iot_battery_close(IotBatteryHandle_t pxBatteryHandle)
  */
 static void prvBatteryMonitorTaskMain( void )
 {
-    static bool bLowVoltageTriggered = false;  // Low Battery Status Indicator
-    static bool bShutdownTriggered = false;
+    static uint16_t FirstbLowVoltageTriggered = 0;  // Low Battery Status Indicator
+    static bool FirstbShutdownTriggered = true;
+    uint16_t usVoltage   = 0;
+    uint16_t usCurrent   = 0;
+    uint8_t  ucCharge    = 0;
+    int16 temperature = 0;
 
     xGlobalHandle = iot_battery_open( 0 );
     if( xGlobalHandle == NULL )
@@ -679,26 +869,50 @@ static void prvBatteryMonitorTaskMain( void )
              pxInfo->usMinVoltage,
              pxInfo->usMaxVoltage );
     }
+    if( iot_battery_chargeLevel( xGlobalHandle, &ucCharge ) == IOT_BATTERY_SUCCESS )
+    {
+        if (ucCharge <= 10 && !battery_if_is_charging())
+        {
+            BAT_MONITOR_PRT("low voltage and disable charge to poweroff percent is %d%%\r\n", ucCharge);
+            bk_reboot_ex(RESET_SOURCE_FORCE_DEEPSLEEP);
+        }
+    }
 
     /* Every BATTERY_STATE_MONITORING_PERIOD, check the charging state, sample the voltage, evaluate the state */
     while( s_charging_init_status_flag )
     {
+        nwy_adc_to_temperature(&temperature);
+        if (temperature < 10  || temperature > 45)
+        {
+            nwy_charge_enable = false;
+            BAT_MONITOR_PRT("temperature is over range to disable charge\r\n");
+            bk_gpio_set_output_high(NWY_CHARGE_ENABLE_GPIO);
+        }
+        else if ((temperature < 19 && temperature > 12 )||(temperature < 43 && temperature > 36 ))
+        {
+            nwy_charge_enable = true;
+            BAT_MONITOR_PRT("set charge current limit\r\n");
+            bk_gpio_set_output_low(NWY_CHARGE_ENABLE_GPIO);
+            bk_gpio_set_output_low(NWY_CHARGE_CURRENT_CRTL);
+        }
+        else if ((temperature < 34 && temperature > 21 ))
+        {
+            nwy_charge_enable = true;
+            BAT_MONITOR_PRT("set charge current is max\r\n");
+            bk_gpio_set_output_low(NWY_CHARGE_ENABLE_GPIO);
+            bk_gpio_set_output_high(NWY_CHARGE_CURRENT_CRTL);
+        }
+
         /* Check charging status */
         prvCheckChargeStatus( xGlobalHandle );
+        #if 0
         if (pxInfo->xBatteryStatus == eBatteryCharging)
         {
-            if (s_battery_event_callback) {
-                s_battery_event_callback(EVT_BATTERY_CHARGING);
-            }
             bLowVoltageTriggered = false;
             bShutdownTriggered = false;
         }
-
+        #endif
         {
-            uint16_t usVoltage   = 0;
-            uint16_t usCurrent   = 0;
-            uint8_t  ucCharge    = 0;
-
             if( iot_battery_voltage( xGlobalHandle, &usVoltage ) == IOT_BATTERY_SUCCESS )
             {
                 if(pxInfo->xBatteryStatus == eBatteryCharging)
@@ -712,40 +926,69 @@ static void prvBatteryMonitorTaskMain( void )
             }
             if( iot_battery_chargeLevel( xGlobalHandle, &ucCharge ) == IOT_BATTERY_SUCCESS )
             {
+                //#ifdef FEATURE_NWY_GET_BATTARY_INFO
+                if (s_battery_event_callback) {
+                    s_battery_event_callback(EVT_BATTERY_GET_INFO,ucCharge);
+                }
+                //#endif
+
                 /* Low battery detection logic */
                 if ((ucCharge <= SHUTDOWN_CAPACITY_THRESHOLD) && (pxInfo->xBatteryStatus != eBatteryCharging))
                 {
-                    if (!bShutdownTriggered)
+                    if (!FirstbShutdownTriggered)
                     {
                         if (s_battery_event_callback) {
-                            s_battery_event_callback(EVT_SHUTDOWN_LOW_BATTERY);
+//#ifdef FEATURE_NWY_GET_BATTARY_INFO
+                            s_battery_event_callback(EVT_SHUTDOWN_LOW_BATTERY,0);
+//#else
+                            //s_battery_event_callback(EVT_SHUTDOWN_LOW_BATTERY);
+//#endif
                         }
                         BAT_MONITOR_WPRT("Shutdown due to critical battery level!\r\n");
-                        bShutdownTriggered = true;
 
                         // if you want to shutdown immdiately,can runnning this fake function here：
                         // system_shutdown();
                     }
+                    FirstbShutdownTriggered = false;
                 }
                 else if ((ucCharge <= LOW_CAPACITY_THRESHOLD) && (pxInfo->xBatteryStatus != eBatteryCharging))
                 {
-                    if (!bLowVoltageTriggered)
+                    if ((FirstbLowVoltageTriggered % 10) == 1)
                     {
                         if (s_battery_event_callback) {
-                            s_battery_event_callback(EVT_BATTERY_LOW_VOLTAGE);
+//#ifdef FEATURE_NWY_GET_BATTARY_INFO
+
+                           s_battery_event_callback(EVT_BATTERY_LOW_VOLTAGE,0);
+//#else
+                            //s_battery_event_callback(EVT_BATTERY_LOW_VOLTAGE);
+//#endif
                         }
                         BAT_MONITOR_WPRT("Low voltage event triggered!\r\n");
-                        bLowVoltageTriggered = true;
+                        FirstbLowVoltageTriggered = 1; //30 * 10 = 1min
                     }
-                    bShutdownTriggered = false;
+                    BAT_MONITOR_WPRT("Low voltage event num %d!\r\n", FirstbLowVoltageTriggered);
+                    FirstbLowVoltageTriggered++;
                 }
+                #if 0
                 else
                 {
                     bLowVoltageTriggered = false;  // When charging resumes, reset the flag
                     bShutdownTriggered = false;
                 }
+                #endif
                 if(pxInfo->xBatteryStatus != eBatteryCharging)
                     BAT_MONITOR_PRT("Battery level: %u%%\r\n", ucCharge);
+            }
+            if (pxInfo->xBatteryStatus == eBatteryCharging)
+            {
+                FirstbLowVoltageTriggered = 1;
+                if (s_battery_event_callback) {
+    //#ifdef FEATURE_NWY_GET_BATTARY_INFO
+                    s_battery_event_callback(EVT_BATTERY_CHARGING,0);
+    //#else
+                    //s_battery_event_callback(EVT_BATTERY_CHARGING);
+    //#endif
+                }
             }
         }
 
