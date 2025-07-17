@@ -130,7 +130,9 @@
 #define IP6_DEBUG                       LWIP_DBG_OFF
 #define MDNS_DEBUG                      LWIP_DBG_OFF
 
-//#define LWIP_COMPAT_MUTEX      		    1
+#define LWIP_NETIF_TX_SINGLE_PBUF 1
+
+// #define LWIP_COMPAT_MUTEX      		    1
 /**
  * SYS_LIGHTWEIGHT_PROT==1: if you want inter-task protection for certain
  * critical regions during buffer allocation, deallocation and memory
@@ -179,11 +181,10 @@
 #define MEMP_STATS                       CONFIG_LWIP_MEMP_STATS
 #define MEM_STATS                        CONFIG_LWIP_MEM_STATS
 
-
-#define MAX_SOCKETS_TCP 8
-#define MAX_LISTENING_SOCKETS_TCP 4
-#define MAX_SOCKETS_UDP 8
-#define TCP_SND_BUF_COUNT 5
+#define MAX_SOCKETS_TCP 16
+#define MAX_LISTENING_SOCKETS_TCP 12
+#define MAX_SOCKETS_UDP 32
+#define TCP_SND_BUF_COUNT 16
 
 /* Value of TCP_SND_BUF_COUNT denotes the number of buffers and is set by
  * CONFIG option available in the SDK
@@ -435,7 +436,7 @@ u32_t beken_random(void);
  * DNS related options, revisit later to fine tune.
  */
 #define LWIP_DNS                        1
-#define DNS_TABLE_SIZE                  2  // number of table entries, default 4
+#define DNS_TABLE_SIZE 4 // number of table entries, default 4
 //#define DNS_MAX_NAME_LENGTH           64  // max. name length, default 256
 #define DNS_MAX_SERVERS                 2  // number of DNS servers, default 2
 #define DNS_DOES_NAME_CHECK             1  // compare received name with given,def 0
@@ -480,6 +481,7 @@ u32_t beken_random(void);
 
 #define LWIP_SO_LINGER				1
 
+#define LWIP_SO_SNDTIMEO 1
 /**
  * TCP_LISTEN_BACKLOG==1: Handle backlog connections.
  */

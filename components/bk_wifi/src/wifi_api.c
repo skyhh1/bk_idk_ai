@@ -155,7 +155,13 @@ int demo_sta_app_init(char *oob_ssid, char *connect_key)
 	os_strcpy(sta_config.password, connect_key);
 
 #if CONFIG_STA_AUTO_RECONNECT
+    BK_LOGW(TAG, " nwy ssid:%s key:%s\r\n", sta_config.ssid, sta_config.password);
+#if CONFIG_NWY_WLAN_SCAN_MAX_CNT
+    sta_config.auto_reconnect_count = 7;
+    BK_LOGE(TAG, "[NWY]auto_reconnect_count:%d\r\n",sta_config.auto_reconnect_count);
+#else
 	sta_config.auto_reconnect_count = 5;
+#endif
 	sta_config.disable_auto_reconnect_after_disconnect = true;
 #endif
 

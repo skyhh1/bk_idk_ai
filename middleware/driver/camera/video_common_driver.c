@@ -643,10 +643,20 @@ bk_err_t bk_video_power_on(uint8_t gpio, uint8_t activ_level)
 
 	if (activ_level)
     {
+		//begin: add by wanglongzhen to crtl AVDD 20250426
+		#if (defined CONFIG_CAMERA_AVDD_POWER_GPIO_ID) && (CONFIG_CAMERA_AVDD_POWER_GPIO_ID > 0)
+		bk_gpio_set_output_high(CONFIG_CAMERA_AVDD_POWER_GPIO_ID);
+		#endif
+		//end: add by wanglongzhen to crtl AVDD 20250426
 		bk_gpio_set_output_high(gpio); // high active
     }
 	else
     {
+		//begin: add by wanglongzhen to crtl AVDD 20250426
+		#if (defined CONFIG_CAMERA_AVDD_POWER_GPIO_ID) && (CONFIG_CAMERA_AVDD_POWER_GPIO_ID > 0)
+		bk_gpio_set_output_low(CONFIG_CAMERA_AVDD_POWER_GPIO_ID);
+		#endif
+		//end: add by wanglongzhen to crtl AVDD 20250426
 		bk_gpio_set_output_low(gpio); // low active
     }
 
@@ -662,9 +672,23 @@ bk_err_t bk_video_power_off(uint8_t gpio, uint8_t activ_level)
 #if (CONFIG_CAMERA_POWER_GPIO_CTRL)
 
 	if (activ_level)
+	{
+		//begin: add by wanglongzhen to crtl AVDD 20250426
+		#if (defined CONFIG_CAMERA_AVDD_POWER_GPIO_ID) && (CONFIG_CAMERA_AVDD_POWER_GPIO_ID > 0)
+		bk_gpio_set_output_low(CONFIG_CAMERA_AVDD_POWER_GPIO_ID);
+		#endif
+		//end: add by wanglongzhen to crtl AVDD 20250426
 		bk_gpio_set_output_low(gpio);
+	}
 	else
+	{
+		//begin: add by wanglongzhen to crtl AVDD 20250426
+		#if (defined CONFIG_CAMERA_AVDD_POWER_GPIO_ID) && (CONFIG_CAMERA_AVDD_POWER_GPIO_ID > 0)
+		bk_gpio_set_output_high(CONFIG_CAMERA_AVDD_POWER_GPIO_ID);
+		#endif
+		//end: add by wanglongzhen to crtl AVDD 20250426
 		bk_gpio_set_output_high(gpio);
+	}
 
 #endif //CONFIG_CAMERA_POWER_GPIO_CTRL
 

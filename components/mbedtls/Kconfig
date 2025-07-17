@@ -7,4 +7,7 @@ menu "Mbedtls"
 		depends on MBEDTLS
 		bool "Enable Full Mbedtls"
 		default n
+	config NWY_MBEDTLS_FILE_CONFIG
+		bool "NWY_NEED_FILE"
+		default y
 endmenu

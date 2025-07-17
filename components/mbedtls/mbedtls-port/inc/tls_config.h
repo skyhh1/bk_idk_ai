@@ -3451,7 +3451,9 @@ extern void tls_mbedtls_mem_free(void *ptr);
 #define MBEDTLS_PLATFORM_STD_FREE		tls_mbedtls_mem_free
 #endif
 
-
+#define MBEDTLS_SSL_RENEGOTIATION        // ! xph add
+#define MBEDTLS_KEY_EXCHANGE_PSK_ENABLED // ! xph add
+#define MBEDTLS_DES_C                    // ! xph add
 #define MBEDTLS_HAVE_ASM
 #define MBEDTLS_ENTROPY_HARDWARE_ALT
 #define MBEDTLS_AES_ROM_TABLES

@@ -64,4 +64,10 @@ menu "CAMERA"
 		int "check jpeg frame effective length, check from frame end, until find 0xffd9"
 		default 1024
 
+	#begin: add by wanglongzhen to crtl AVDD 20250426
+	config CAMERA_AVDD_POWER_GPIO_ID
+		int "the gpio id control camera power"
+		default -1
+	#end: add by wanglongzhen to crtl AVDD 20250426
+
 endmenu

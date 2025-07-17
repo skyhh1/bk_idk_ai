@@ -3,12 +3,13 @@
 
 #include "bk_gpio.h"
 #include "bk_uart.h"
+#include <components/log.h>
 
 #define BAT_MONITOR_DEBUG
 
 #ifdef BAT_MONITOR_DEBUG
-#define BAT_MONITOR_PRT                 os_printf
-#define BAT_MONITOR_WPRT                warning_prf
+#define BAT_MONITOR_PRT(...)                 BK_LOGI("Battery", ##__VA_ARGS__)
+#define BAT_MONITOR_WPRT(...)                BK_LOGW("Battery", ##__VA_ARGS__)
 #else
 #define BAT_MONITOR_PRT                 os_null_printf
 #define BAT_MONITOR_WPRT                os_null_printf
@@ -97,10 +98,20 @@ typedef enum{
 	EVT_BATTERY_CHARGING = 0,
 	EVT_BATTERY_LOW_VOLTAGE,
     EVT_SHUTDOWN_LOW_BATTERY,
+//#ifdef FEATURE_NWY_GET_BATTARY_INFO
+    EVT_BATTERY_GET_INFO,
+//#endif
 }evt_battery;
 
-typedef uint8_t (*battery_event_callback_t)(evt_battery event_param);
+//#ifdef FEATURE_NWY_GET_BATTARY_INFO
+typedef uint8_t (*battery_event_callback_t)(evt_battery event_param,int level);
+//#else
+//typedef uint8_t (*battery_event_callback_t)(evt_battery event_param);
+//#endif
 int battery_event_callback_register(battery_event_callback_t callback);
+
+
+IotBatteryHandle_t nwy_get_battery_handle(void);
 
 /* Public API function prototypes */
 /**
